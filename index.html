@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Random Video Chat</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="app">
+    <section id="ageGate" class="card age-gate">
+      <h1>Random Video Chat</h1>
+      <p class="muted">
+        This demo connects you randomly with another user by video.
+        Do not share personal information. Leave and report anyone behaving
+        inappropriately.
+      </p>
+      <label class="check">
+        <input id="ageCheck" type="checkbox" />
+        I confirm that I am 18 or older and agree to use this service responsibly.
+      </label>
+      <button id="enterBtn" disabled>Enter</button>
+      <p class="tiny">MVP/demo only — moderation, age verification and privacy controls must be strengthened before public launch.</p>
+    </section>
+
+    <section id="chatApp" class="hidden">
+      <header class="topbar">
+        <div>
+          <h1>Random Video Chat</h1>
+          <span id="status" class="status">Ready</span>
+        </div>
+        <button id="reportBtn" class="danger ghost">Report</button>
+      </header>
+
+      <section class="videos">
+        <div class="video-card">
+          <span class="label">You</span>
+          <video id="localVideo" autoplay muted playsinline></video>
+        </div>
+        <div class="video-card">
+          <span class="label">Stranger</span>
+          <video id="remoteVideo" autoplay playsinline></video>
+          <div id="remotePlaceholder" class="placeholder">Waiting for a stranger…</div>
+        </div>
+      </section>
+
+      <section class="controls">
+        <button id="startBtn" class="primary">Start</button>
+        <button id="nextBtn" disabled>Next</button>
+        <button id="muteBtn" disabled>Mute</button>
+        <button id="cameraBtn" disabled>Camera Off</button>
+      </section>
+
+      <p class="tiny center">
+        Camera and microphone access is requested only after you press Start.
+      </p>
+    </section>
+  </main>
+
+  <div id="reportModal" class="modal hidden">
+    <div class="card modal-card">
+      <h2>Report stranger</h2>
+      <select id="reportCategory">
+        <option value="nudity">Sexual/nudity</option>
+        <option value="harassment">Harassment</option>
+        <option value="spam">Spam/scam</option>
+        <option value="violence">Threat/violence</option>
+        <option value="other">Other</option>
+      </select>
+      <textarea id="reportDetails" placeholder="Optional details"></textarea>
+      <div class="modal-actions">
+        <button id="cancelReport">Cancel</button>
+        <button id="submitReport" class="danger">Submit report</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
