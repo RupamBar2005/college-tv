@@ -16,7 +16,7 @@ const waiting = new Set();
 // socket.id -> partner socket.id
 const partners = new Map();
 
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(__dirname));
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, waiting: waiting.size, connected: io.engine.clientsCount });
