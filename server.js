@@ -68,14 +68,32 @@ io.on("connection", (socket) => {
   });
 
   socket.on("next", () => {
-    removeFromWaiting(socket.id);
-    disconnectPair(socket.id, "next");
+  removeFromWaiting(socket.id);
 
-    // Put the caller back into the queue for another stranger.
-    waiting.add(socket.id);
-    socket.emit("queue-status", { waiting: true });
-    tryMatch();
-  });
+  const partnerId = partners.get(socket.id);
+
+  // Break the current pair.
+  partners.delete(socket.id);
+
+  if (partnerId) {
+    partners.delete(partnerId);
+
+    // Automatically put the old partner back into the queue.
+    const partner = io.sockets.sockets.get(partnerId);
+
+    if (partner) {
+      waiting.add(partnerId);
+      partner.emit("partner-next");
+      partner.emit("queue-status", { waiting: true });
+    }
+  }
+
+  // Put the person who pressed Next back into the queue.
+  waiting.add(socket.id);
+  socket.emit("queue-status", { waiting: true });
+
+  tryMatch();
+});
 
   socket.on("signal", (payload) => {
     const partnerId = partners.get(socket.id);
