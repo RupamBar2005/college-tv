@@ -68,31 +68,73 @@ io.on("connection", (socket) => {
   });
 
   socket.on("next", () => {
-  removeFromWaiting(socket.id);
+  // Get everyone currently connected.
+  const allUsers = [...io.sockets.sockets.keys()];
 
-  const partnerId = partners.get(socket.id);
+  // Remember the current partners so we can avoid immediately
+  // rematching the same two people.
+  const oldPartners = new Map(partners);
 
-  // Break the current pair.
-  partners.delete(socket.id);
+  // Break all current pairs.
+  partners.clear();
+  waiting.clear();
 
-  if (partnerId) {
-    partners.delete(partnerId);
-
-    // Automatically put the old partner back into the queue.
-    const partner = io.sockets.sockets.get(partnerId);
-
-    if (partner) {
-      waiting.add(partnerId);
-      partner.emit("partner-next");
-      partner.emit("queue-status", { waiting: true });
+  // Tell everyone their current call has ended.
+  for (const id of allUsers) {
+    const user = io.sockets.sockets.get(id);
+    if (user) {
+      user.emit("partner-next");
     }
   }
 
-  // Put the person who pressed Next back into the queue.
-  waiting.add(socket.id);
-  socket.emit("queue-status", { waiting: true });
+  // Put everyone back into the matching queue.
+  for (const id of allUsers) {
+    waiting.add(id);
+  }
 
-  tryMatch();
+  // Match people while avoiding their previous partner.
+  const available = [...waiting];
+
+  while (available.length >= 2) {
+    let found = false;
+
+    for (let i = 0; i < available.length; i++) {
+      for (let j = i + 1; j < available.length; j++) {
+        const a = available[i];
+        const b = available[j];
+
+        // Don't immediately recreate the old pair.
+        if (oldPartners.get(a) === b) continue;
+
+        available.splice(j, 1);
+        available.splice(i, 1);
+
+        waiting.delete(a);
+        waiting.delete(b);
+
+        partners.set(a, b);
+        partners.set(b, a);
+
+        io.to(a).emit("matched", { initiator: true });
+        io.to(b).emit("matched", { initiator: false });
+
+        found = true;
+        break;
+      }
+
+      if (found) break;
+    }
+
+    if (!found) break;
+  }
+
+  // Anyone who couldn't be matched waits for another user.
+  for (const id of available) {
+    const user = io.sockets.sockets.get(id);
+    if (user) {
+      user.emit("queue-status", { waiting: true });
+    }
+  }
 });
 
   socket.on("signal", (payload) => {
