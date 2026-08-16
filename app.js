@@ -26,20 +26,29 @@ let localStream = null;
 let peer = null;
 let initiator = false;
 let inCall = false;
+let pendingCandidates = [];
 
-const rtcConfig = {
+let rtcConfig = {
   iceServers: [
-    // Public STUN server for development/testing.
     { urls: "stun:stun.l.google.com:19302" }
-
-    // Production: add your TURN server here, e.g.
-    // {
-    //   urls: "turn:turn.example.com:3478",
-    //   username: "temporary-user",
-    //   credential: "temporary-password"
-    // }
   ]
 };
+
+async function loadTurnCredentials() {
+  const response = await fetch(
+  "https://college-tv.metered.live/api/v1/turn/credentials?apiKey=8f910d019c6ef76c11e3d3aa822dab96d32a"
+);
+
+  if (!response.ok) {
+    throw new Error("Could not load TURN credentials");
+  }
+
+  const iceServers = await response.json();
+
+  rtcConfig.iceServers = iceServers;
+
+  console.log("TURN credentials loaded");
+}
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -54,9 +63,12 @@ function closePeer() {
     peer = null;
   }
 
+  pendingCandidates = [];
+
   remoteVideo.srcObject = null;
   remotePlaceholder.classList.remove("hidden");
   inCall = false;
+
   nextBtn.disabled = true;
   muteBtn.disabled = true;
   cameraBtn.disabled = true;
@@ -111,13 +123,14 @@ async function startCamera() {
 async function startSearching() {
   try {
     await startCamera();
+    await loadTurnCredentials();
     closePeer();
     setStatus("Finding a stranger…");
     startBtn.disabled = true;
     socket.emit("join-queue");
   } catch (err) {
     console.error(err);
-    setStatus("Camera/microphone permission was denied.");
+    setStatus("Could not start video chat.");
   }
 }
 
@@ -148,7 +161,14 @@ socket.on("signal", async ({ data }) => {
     if (!peer) createPeer();
 
     if (data.type === "offer") {
-      await peer.setRemoteDescription(new RTCSessionDescription(data.description));
+      await peer.setRemoteDescription(
+        new RTCSessionDescription(data.description)
+      );
+
+      for (const candidate of pendingCandidates) {
+        await peer.addIceCandidate(candidate);
+      }
+      pendingCandidates = [];
 
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
@@ -159,13 +179,27 @@ socket.on("signal", async ({ data }) => {
       });
     }
 
-    if (data.type === "answer") {
-      await peer.setRemoteDescription(new RTCSessionDescription(data.description));
+    else if (data.type === "answer") {
+      await peer.setRemoteDescription(
+        new RTCSessionDescription(data.description)
+      );
+
+      for (const candidate of pendingCandidates) {
+        await peer.addIceCandidate(candidate);
+      }
+      pendingCandidates = [];
     }
 
-    if (data.type === "candidate" && data.candidate) {
-      await peer.addIceCandidate(new RTCIceCandidate(data.candidate));
+    else if (data.type === "candidate" && data.candidate) {
+      const candidate = new RTCIceCandidate(data.candidate);
+
+      if (peer.remoteDescription) {
+        await peer.addIceCandidate(candidate);
+      } else {
+        pendingCandidates.push(candidate);
+      }
     }
+
   } catch (err) {
     console.error("Signaling error:", err);
     setStatus("Could not establish the connection.");
