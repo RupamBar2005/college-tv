@@ -178,6 +178,12 @@ socket.on("partner-left", () => {
   setStatus("Stranger left.");
 });
 
+socket.on("partner-next", () => {
+  closePeer();
+  startBtn.disabled = true;
+  setStatus("Finding a new stranger…");
+});
+
 socket.on("report-received", () => {
   reportModal.classList.add("hidden");
   reportDetails.value = "";
